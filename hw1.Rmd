@@ -1,0 +1,851 @@
+---
+title: 'STA 380, Part 2: Exercises 1'
+author: "Mark Babbe, Camryn Callaway, Siqi Chen, Jiahao Ye, Zhiyi Yang"
+date: "Aug 11, 2017"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    theme: yeti
+    toc: yes
+---
+
+```{r}
+set.seed(1)
+library(pander)
+```
+
+#Probability practice
+##Part A.
+
+First, we have the prior distribution,
+\[P(RC) = 0.3\] 
+\[P(TC) = 1 - P(RC) = 0.7\]
+and conditional distribution on random clicker,
+\[P(Yes \vert RC) = 0.5\]
+
+Now, given in a trial period, 
+\[P(Yes) = 0.65\] 
+\[P(No) = 0.35\]
+
+We know,
+\[P(Yes \cap RC) = P(Yes \vert RC) \times P(RC) = 0.5 \times 0.3 =  0.15\]
+Then,
+\[P(Yes \cap TC) = P(Yes) - P(Yes \cap RC) = 0.65 - 0.15 = 0.5\]
+Hence,
+\[P(Yes \vert TC) = \frac{P(Yes \cap TC)}{P(TC)} = \frac{0.5}{0.7} = 0.7143\]
+
+Therefore, **71.43%** of the truthful clickers answered yes.
+
+##Part B.
+
+First, we have the First, we have the prior distribution,
+\[P(Disease) = 0.000025\] 
+\[P(Non-Disease) = 1 - P(Disease) = 0.999975\]
+
+Also, we have the conditional distribution on disease,
+\[P(Positive \vert Disease) = 0.993 \quad P(Negative \vert Disease) = 0.007\]
+\[P(Positive \vert Non-Disease) = 0.0001 \quad P(Negative \vert Non-Disease) = 0.9999\]
+Or, in a contingency table
+```{r}
+Disease = c(0.993,0.007)
+Healthy = c(0.0001,0.9999)
+table = cbind(Disease,Healthy)
+df = data.frame(table, row.names = c('Positive','Negative'))
+pander(df)
+```
+
+We can then calculate the marginal distribution of test result,
+
+\begin{align*}
+P(Positive) &= P(Positive \vert Disease) \times P(Disease) + P(Positive \vert Non-Disease) \times P(Non-Disease)\\
+&= 0.993 \times 0.000025 + 0.0001 \times 0.999975\\
+&= 0.0001248225\\
+P(Negative) &= 1 - P(Positive) = 0.999871775\\
+\end{align*}
+
+Now, we can calculate the conditional distribution on test result,
+\begin{align*}
+P(Disease \vert Positive) &= \frac{P(Positive \vert Disease) \times P(Disease)}{P(Positive)}\\
+&= \frac{0.993 \times 0.000025}{0.0001248225}\\
+&= 0.19888241302649762663\\
+P(Non-Disease \vert Positive) &= 1 - P(Disease \vert Positive)\\
+&= 0.80111758697350237337\\
+\end{align*}
+
+\begin{align*}
+P(Disease \vert Negative) &= \frac{P(Negative \vert Disease) \times P(Disease)}{P(Negative)}\\
+&= \frac{0.007 \times 0.000025}{0.999871775}\\
+&= 0.0000001750224423\\
+P(Non-Disease \vert Negative) &= 1 - P(Disease \vert Negative)\\
+&= 0.9999998249775577\\
+\end{align*}
+
+Or, in a contingency table
+```{r}
+Positive = c(0.1989,0.8011)
+Negative = c(0,1)
+table = cbind(Positive,Negative)
+df = data.frame(table, row.names = c('Disease','Healthy'))
+pander(df)
+```
+
+From the table above we can see, the problem with the testing policy is that given a positive test result, the probability of having the disease is **19.89%**, which is much lower than the probability of not having the disease 80.11%. Hence, a positive test results are not very effective in implying whether someone has the disease.
+
+
+
+#Exploratory analysis: green buildings
+
+```{r message=FALSE}
+library(mosaic)
+library(foreach)
+library(ggplot2)
+library(plyr)
+library(car)
+library(plotly)
+library(gridExtra)
+library(grid)
+```
+
+```{r}
+green = read.csv('data/greenbuildings.csv', header=TRUE)
+```
+
+##Data Cleaning and Pre-processing
+
+First, we need to clean the data, create columns with factor levels for categorical variables and drop the columns with dummies, so that we can have better interpretations from plots in next steps.
+
+```{r}
+green_dup = green
+
+dummies_green_certificate = model.matrix(~LEED + Energystar - 1, data=green)
+dummies_class = model.matrix(~class_a + class_b - 1, data=green)
+factor_green_certificate = factor(dummies_green_certificate %*% 1:ncol(dummies_green_certificate), label = c('None','LEED','Energystar','Both'))
+factor_class = factor(dummies_class %*% 1:ncol(dummies_class), label = c('c','a','b'))
+
+green_dup$green_certificate = factor_green_certificate
+green_dup$class = factor_class
+green_dup$cluster = factor(green$cluster)
+green_dup$green_rating = factor(green$green_rating, label = c('No','Yes'))
+green_dup$renovated = factor(green$renovated, label = c('No','Yes'))
+green_dup$net = factor(green$net, label = c('No','Yes'))
+green_dup$amenities = factor(green$amenities, label = c('No','Yes'))
+
+green_clean = subset(green_dup, select = -c(LEED, Energystar, class_a, class_b))
+```
+
+Then, we create following subsets of the `green_clean`:
+
+- `non_green`: non-green buildings 
+- `green_only`: green buildings
+- `green_LEED`: green buildings with certification from LEED only 
+- `green_Energystar`: green buildings with certification from Energystar only
+- `green_both`: green buildings with certification from both LEED and Energystar
+
+```{r}
+non_green = subset(green_clean, green_rating=='No')
+green_only = subset(green_clean, green_rating=='Yes')
+
+green_LEED = subset(green_clean, green_certificate=='LEED')
+green_Energystar = subset(green_clean, green_certificate=='Energystar')
+green_Both = subset(green_clean, green_certificate=='Both')
+```
+
+##Permutation Test
+
+Before exploring the relationships of the variables, we run a permutation test, to examine whether the difference in median rent for green and non-green buildings as stated by the stats guru, are significant or due to random chance.
+
+```{r}
+permtest = foreach(i = 1:1000, .combine='c') %do% {
+  t1_shuffle = data.frame(green_clean$Rent, shuffle(green_clean$green_rating))
+  green_shuffle = subset(t1_shuffle,shuffle.green_clean.green_rating. == 'Yes')
+  non_green_shuffle = subset(t1_shuffle,shuffle.green_clean.green_rating. == 'No')
+  median(green_shuffle$green_clean.Rent) - median(non_green_shuffle$green_clean.Rent)
+}
+hist(permtest, xlim = c(-1.5,2))
+myinterval = quantile(permtest, probs=0.95)
+abline(v = myinterval, lwd = 2, lty = 2, col='blue')
+text(1,50,'critical value (alpha = 0.05)',pos = 4, col = 'blue', srt = 90, cex = 0.75)
+pdata(permtest, 2.6, lower=FALSE)
+```
+
+The result above indicates that the $2.6/sqft.yr difference in rent is *significant*, with a p-value close to zero. So our next step is to explore the potential relationships between predictors and rent. 
+
+##Green vs Non-Green (at a glance)
+
+###Histogram for Green vs Non-Green on `Rent`
+```{r fig.width=8, fig.height=6}
+#plot hist for green vs non-green
+m_green = median(green_only$Rent)
+m_non_green = median(non_green$Rent)
+
+mybreaks = seq(0, 250, by=5)
+hist(non_green$Rent, 
+     breaks = mybreaks,
+     xlab="The rent charged to tenants in the building ($/sqft.yr)", 
+     main="", border="darkgrey",
+     col="grey", axes=FALSE, ylim=c(0, 1500))
+axis(2,at=seq(0,1500,by=250), las=1,tick=TRUE)
+axis(1,at=seq(0,250,by=25),pos=0)
+hist(green_only$Rent, breaks = mybreaks, add=TRUE, border=rgb(0,100,0,100,maxColorValue=255), 
+     col= rgb(0,100,0,80,maxColorValue=255))
+
+text(30, 225, "Green Houses",font=2, cex = 0.75)
+text(30, 1510, "Non-Green Houses",font=2, cex = 0.75)
+```
+
+The histogram above shows the annual rent ($/sqrt) for green buildings and non-green buildings. We can see that the distribution for green buildings has much lower kurtosis.
+
+###Histogram for Different Green Cerfiticates on `Rent`
+```{r fig.width=8, fig.height=6}
+#plot hist for LEED vs Energystar
+m_green_LEED = median(green_LEED$Rent)
+m_green_Energystar = median(green_Energystar$Rent)
+m_green_Both = median(green_Both$Rent)
+
+mybreaks = seq(0, 150, by=5)
+hist(green_Energystar$Rent, 
+     breaks = mybreaks,
+     xlab="The rent charged to tenants in the building ($/sqft.yr)", 
+     main="", border="darkgrey", 
+     col="grey", axes=FALSE, ylim=c(0, 120))
+axis(2,at=seq(0,120,by=20), las=1,tick=TRUE)
+axis(1,at=seq(0,150,by=10),pos=0)
+hist(green_LEED$Rent, breaks = mybreaks, add=TRUE, border=rgb(0,100,0,100,maxColorValue=255), 
+     col= rgb(0,100,0,80,maxColorValue=255))
+hist(green_Both$Rent, breaks = mybreaks, add=TRUE, border=rgb(100,0,0,100,maxColorValue=255), 
+     col= rgb(255,0,0,80,maxColorValue=255))
+
+text(25, 5, "Both", font=2, cex = 0.75)
+text(25, 20, "LEED", font=2, cex = 0.75)
+text(25, 120, "Energystar", font=2, cex = 0.75)
+```
+
+The histogram above shows the annual rent ($/sqrt) for green buildings with certifications from LEED, Energystar or Both. We can see that the ranges of the distribution for three categories are significantly different. 
+
+
+###Boxplots for Green vs Non-Green on `Rent`
+```{r fig.width = 12, fig.height= 6}
+plot_green = bwplot(Rent ~ green_rating, data = green_clean, main = 'Green vs Non-Green')
+plot_certificate = bwplot(Rent ~ green_certificate, data = green_clean, main = 'Different Green Certifications')
+grid.arrange(plot_green,plot_certificate, ncol = 2)
+```
+
+```{r}
+favstats(Rent ~ green_rating, data = green_clean)
+favstats(Rent ~ green_certificate, data = green_clean)
+```
+
+The boxplots with summary statistics above shows that the difference in median rent has different directions once we split green buildings into sub-groups based on certifications. We can see that *buildings with LEED only or both certifications has lower median rent than non-green buildings*, which would potentially result in a loss for the construction.
+
+##Relationships between `Rent` and other variables
+
+###Scatter Plot for Numerical Variables
+```{r}
+scatterplotMatrix(~ size + leasing_rate + stories + age + total_dd_07 + Rent, data = green_clean, upper.panel = NULL)
+```
+
+From the pairwise plots above we can see, there are potential relationships between numerical variables with rent, which very likely are factors in the relationship between green buildings and rent.
+
+###Box Plot for Categorical Variables
+```{r fig.width=12, fig.height=6}
+plot1 = bwplot(Rent ~ renovated, data = green_clean, main = 'renovated')
+plot2 = bwplot(Rent ~ net, data = green_clean, main = 'net contract')
+plot3 = bwplot(Rent ~ amenities, data = green_clean, main = 'amenities')
+plot4 = bwplot(Rent ~ class, data = green_clean, main = 'building quality class')
+
+grid.arrange(plot1,plot2,plot3,plot4, ncol = 4)
+```
+
+From the pairwise plots above we can see, there are potential relationships between categorical variables with rent as well. Again, such relationships are very likely factors in the relationship between green buildings and rent.
+
+##Relationship between `green_certificate` and other categorical variables
+
+```{r fig.width=15, fig.height=6}
+par(mfrow = c(2,2))
+mosaicplot(green_certificate ~ renovated, data = green_clean)
+mosaicplot(green_certificate ~ net, data = green_clean)
+mosaicplot(green_certificate ~ amenities, data = green_clean)
+mosaicplot(green_certificate ~ class, data = green_clean)
+```
+
+As shown in the mosaicplots between different green certifications and categorical variables, effects of categorical variables on rent are further shown. For example, the 4th plot shows that green buildings are less likely to be built with high qualities (a or b), which can be an important factor for higher rent.
+
+##Lattice and Interaction Plot
+
+###Numerical Variables with Different Green Certifications
+
+
+```{r fig.width=16, fig.height=6}
+plot1_l = xyplot(Rent ~ size | green_certificate, data = green_clean)
+plot1_i = ggplot(green_clean) +
+  aes(x = size, y = Rent, color = green_certificate) +
+  geom_point(color = "grey") +
+  geom_smooth(method = "lm") 
+
+grid.arrange(plot1_l,plot1_i,ncol = 2, 
+             top=textGrob("size with different green certifications", 
+                          gp=gpar(fontsize=15,fontface = 'bold')))
+
+plot2_l = xyplot(Rent ~ leasing_rate | green_certificate, data = green_clean)
+plot2_i = ggplot(green_clean) +
+  aes(x = leasing_rate, y = Rent, color = green_certificate) +
+  geom_point(color = "grey") +
+  geom_smooth(method = "lm") 
+
+grid.arrange(plot2_l,plot2_i,ncol = 2, 
+             top=textGrob("leasing rate with different green certifications", 
+                          gp=gpar(fontsize=15,fontface = 'bold')))
+
+plot3_l = xyplot(Rent ~ stories | green_certificate, data = green_clean)
+plot3_i = ggplot(green_clean) +
+  aes(x = stories, y = Rent, color = green_certificate) +
+  geom_point(color = "grey") +
+  geom_smooth(method = "lm") 
+
+grid.arrange(plot3_l,plot3_i,ncol = 2, 
+             top=textGrob( 'stories with different green certifications', 
+                          gp=gpar(fontsize=15,fontface = 'bold')))
+
+plot4_l = xyplot(Rent ~ age | green_certificate, data = green_clean)
+plot4_i = ggplot(green_clean) +
+  aes(x = age, y = Rent, color = green_certificate) +
+  geom_point(color = "grey") +
+  geom_smooth(method = "lm") 
+
+grid.arrange(plot4_l,plot4_i,ncol = 2, 
+             top=textGrob( 'building age with different green certifications', 
+                          gp=gpar(fontsize=15,fontface = 'bold')))
+
+plot1_l = xyplot(Rent ~ total_dd_07 | green_certificate, data = green_clean)
+plot1_i = ggplot(green_clean) +
+  aes(x = total_dd_07, y = Rent, color = green_certificate) +
+  geom_point(color = "grey") +
+  geom_smooth(method = "lm") 
+
+grid.arrange(plot1_l,plot1_i,ncol = 2, 
+             top=textGrob("total number of degree days with different green certifications", 
+                          gp=gpar(fontsize=15,fontface = 'bold')))
+
+```
+
+The plots above shows the pairwise interactions with numerical variables and buildings green certifications. Plots on the right hand side indicate significant interactions between them.
+
+###Categorical Variables with Different Green Certifications
+```{r fig.width=12, fig.height=6}
+plot5_l = bwplot(Rent ~ renovated | green_certificate, data = green_clean)
+green_ren_Int <- ddply(green_clean,.(renovated,green_certificate),summarise, val = mean(Rent))
+plot5_i = ggplot(green_clean, aes(x = renovated, y = Rent, colour = green_certificate)) + 
+  geom_boxplot() + 
+  geom_point(data = green_ren_Int, aes(y = val)) +
+  geom_line(data = green_ren_Int, aes(y = val, group = green_certificate))
+
+grid.arrange(plot5_l,plot5_i, ncol=2,
+             top=textGrob( 'renovated building with different green certifications', 
+                          gp=gpar(fontsize=15,fontface = 'bold')))
+
+plot6_l = bwplot(Rent ~ net | green_certificate, data = green_clean)
+green_net_Int <- ddply(green_clean,.(net,green_certificate),summarise, val = mean(Rent))
+plot6_i = ggplot(green_clean, aes(x = net, y = Rent, colour = green_certificate)) + 
+  geom_boxplot() + 
+  geom_point(data = green_net_Int, aes(y = val)) +
+  geom_line(data = green_net_Int, aes(y = val, group = green_certificate))
+
+grid.arrange(plot6_l,plot6_i,ncol = 2, 
+             top=textGrob( 'net contract building with different green certifications', 
+                          gp=gpar(fontsize=15,fontface = 'bold')))
+
+plot7_l = bwplot(Rent ~ amenities | green_certificate, data = green_clean)
+green_amen_Int <- ddply(green_clean,.(amenities,green_certificate),summarise, val = mean(Rent))
+plot7_i = ggplot(green_clean, aes(x = amenities, y = Rent, colour = green_certificate)) + 
+  geom_boxplot() + 
+  geom_point(data = green_amen_Int, aes(y = val)) +
+  geom_line(data = green_amen_Int, aes(y = val, group = green_certificate))
+
+grid.arrange(plot7_l,plot7_i,ncol = 2, 
+             top=textGrob( 'building amenities with different green certifications', 
+                          gp=gpar(fontsize=15,fontface = 'bold')))
+
+plot8_l = bwplot(Rent ~ class | green_certificate, data = green_clean)
+green_class_Int <- ddply(green_clean,.(class,green_certificate),summarise, val = mean(Rent))
+plot8_i = ggplot(green_clean, aes(x = class, y = Rent, colour = green_certificate)) + 
+  geom_boxplot() + 
+  geom_point(data = green_class_Int, aes(y = val)) +
+  geom_line(data = green_class_Int, aes(y = val, group = green_certificate))
+
+grid.arrange(plot8_l,plot8_i,ncol = 2, 
+             top=textGrob( 'building quality class with different green certifications', 
+                          gp=gpar(fontsize=15,fontface = 'bold')))
+```
+
+The plots above shows the pairwise interactions with categorical variables and buildings green certifications. Again, plots on the right hand side indicate significant interactions between them.
+
+##Linear Regression
+
+To quantify the potential effects of other predictors in rent as shown above, we run three multiple linear regression model to show that by taking into account of other variables (both numerical and categorical), the effect of green buildings on rent may be reduced, possibly even into a negative direction.
+
+**Model 1**
+
+```{r}
+lm.fit1 = lm(Rent ~ green_rating + size + leasing_rate + stories + age + total_dd_07 + class + amenities + renovated + net, data = green_clean) 
+summary(lm.fit1)
+```
+
+In the first model, we fit the `Rent` in a linear regressin using all the numerical and categorical variables discussed above, and also `green_rating`. The result shows that most of the coefficients on the predictors are significant, and after taking account for effects from other variables, rent for green buildings on average is $2.12/sqft.yr lower than rent for non-green buildings.  
+
+**Model 2**
+
+```{r}
+lm.fit2 = lm(Rent ~ green_certificate + size + leasing_rate + stories + age + total_dd_07 + class + amenities + renovated + net, data = green_clean) 
+summary(lm.fit2)
+```
+
+In the second model, we fit the `Rent` in a linear regressin using all the numerical and categorical variables discussed above, and also `green_classification`. The only difference between this model and model 1 is that now we further classify green buildings by their certifications. The result shows that after taking account for effects from other variables and further classifying on green certifications, rent for green buildings with Energystar certifications on average is $2.33/sqft.yr lower than rent for non-green buildings, with a significant relationship.  
+
+**Model 3**
+
+```{r}
+lm.fit3 = lm(Rent ~ green_certificate * size + green_certificate * leasing_rate + green_certificate * stories + green_certificate * age + green_certificate * total_dd_07 + green_certificate * class + amenities + renovated + net, data = green_clean) 
+summary(lm.fit3)
+
+```
+
+In the third model, we fit the `Rent` in a linear regressin using all the numerical and categorical variables discussed above, including their interaction with `green_certificate`. The result further proves that the relationships between rent and green buildings are correlated with the effect from other predictors. Further more, different green certifications can have very different effects on rent.
+
+##Summary
+In a nutshell, the evaluation from the stats guru is too "simple". First we perform a permutation test, showing that the difference in median rent for green and non-green buildings is not by random chance. Then we further examine possible confounding effect on rent from other predictors using histogram, box plots, mosaic plots, lattic plots and interaction plots. Lastly we perform linear regression models to quantify the effect on the relationship with rent from other predictors. We found that most of the relationships between other variables and rent are significant, which have shrinken the relationship of green buildings. Moreover, such relationship is very different based on different green certifications. Thus, for more accurate predictions on the profitability of this project, we need to take into accounts of other predictors, and the certification type of the green building.
+
+
+#Bootstrapping
+
+```{r message=FALSE}
+library(mosaic)
+library(foreach)
+library(quantmod)
+```
+
+##Market Price Data from Yahoo
+```{r message=FALSE}
+mystocks = c('SPY','TLT', 'LQD', 'EEM', 'VNQ')
+getSymbols(mystocks,src="yahoo")
+```
+
+##Daily Returns for Each ETF
+```{r fig.width=12, fig.height=6}
+for(ticker in mystocks) {
+  expr = paste0(ticker, "a = adjustOHLC(", ticker, ")")
+  eval(parse(text=expr))
+}
+
+all_returns = cbind(ClCl(SPYa),ClCl(TLTa),ClCl(LQDa),ClCl(EEMa),ClCl(VNQa))
+myreturns = data.frame(na.omit(all_returns))
+```
+
+##Risk in Returns for Each ETF
+```{r}
+summary(myreturns)
+apply(myreturns, 2, sd)
+```
+
+```{r}
+boxplot(myreturns, ylim=c(-0.2,0.2))
+```
+
+From the summary statistics and box plots above we can see mean, median daily returns for each of the five ETF. We can also see the quantiles and standard deviation of each ETF. We consider standard deviation of the sample daily return as a good indicator for risk since it quantifies the volatility of the return, which ultimately indicating the potential risk accosiated with each ETF. Out of the five asset classes, LQD appears to have lowest expected daily return with smallest volitility, which can be viewed as a safe alternative. On the other hand, EEM appears to have highest expected daily return along with largest volitility, which can be viewed as an aggressive alternative.
+
+
+```{r fig.width=8, fig.height=6}
+pairs(myreturns, upper.panel = NULL)
+cor(myreturns)
+```
+
+Since these five asset classes are not indipendent, the risk for a portfolio containing these five ETFs can either be diversified or increased by combining negatively or possitively correlated assets.
+The table and plot above shows the relationship between them.
+
+##Portfolio Weights
+
+###Weights Combinations of 5 ETFs
+
+To better determine the weights for safe and aggressive portfolio, we consider all possible combinations of weights from 0 to 1 (smallest unit is 0.1).
+
+```{r}
+combs = data.frame(matrix(0,1002,5))
+count = 1
+for (i in seq(0,1,by=0.1)){
+  for (j in seq(0,1-i,by=0.1)){
+    for(k in seq(0,1-i-j,by=0.1)){
+      for(l in seq(0,1-i-j-k, by=0.1)){
+        m = 1 - i - j - k -l
+        combs[count,] = c(i,j,k,l,m)
+        count = count + 1
+      }
+    }
+  }
+}
+```
+
+###Safe Portfolio
+
+First let's look at possible combinations for safe portfolio. We filter out all the portfolios that has more than 2 zero-weight ETFs, and for all of the rest portfolios, we compute the mean and standard deviation for each portfolio.
+
+```{r}
+combs_safe = combs[rowSums(combs==0)<=2,]
+n_safe = nrow(combs_safe)
+m_safe = rep(0,n_safe)
+sd_safe = rep(0,n_safe)
+low_safe = rep(0,n_safe)
+up_safe = rep(0,n_safe)
+for (i in 1:n_safe){
+  comb = data.matrix(myreturns) %*% diag(combs_safe[i,])
+  m_safe[i] = mean(comb[,1] + comb[,2] + comb[,3] + comb[,4] + comb[,5])
+  sd_safe[i] = sd(comb[,1] + comb[,2] + comb[,3] + comb[,4] + comb[,5])
+}
+safe_stat = data.frame(cbind(m_safe,sd_safe))
+head(safe_stat[order(safe_stat$sd_safe),])
+```
+
+The table above shows the mean and standard deviation in daily returns for each of the portfolio, ordering by standard deviation in ascending order. The first portfolio has the lowest standard deviation, and slightly lower mean than the second portfolio. But notice that here the difference in standard deviation is much larger than the difference in mean, hence the first portfolio can be a good choice for the safe portfolio.
+
+```{r}
+best_safe = which.min(sd_safe)
+best_comb_safe = combs_safe[best_safe,]
+best_comb_safe
+```
+
+The weights for the safe portfolio is 20% SPY, 20% TLT, 60% LQD, which is also intuitively safe when we look at the volatility of each ETF.
+
+###Aggressive Portfolio
+
+Now let's look at possible combinations for aggressive portfolio. We filter out all the portfolios that has more than 3 zero-weight ETFs, and for all of the rest portfolios, we compute the mean and standard deviation for each portfolio.
+
+```{r}
+combs_agg = combs[rowSums(combs==0)<=3,]
+n_agg = nrow(combs_agg)
+m_agg = rep(0,n_agg)
+sd_agg = rep(0,n_agg)
+low_agg = rep(0,n_agg)
+up_agg = rep(0,n_agg)
+for (i in 1:n_agg){
+  comb = data.matrix(myreturns) %*% diag(combs_agg[i,])
+  m_agg[i] = mean(comb[,1] + comb[,2] + comb[,3] + comb[,4] + comb[,5])
+  sd_agg[i] = sd(comb[,1] + comb[,2] + comb[,3] + comb[,4] + comb[,5])
+}
+
+agg_stat = data.frame(cbind(m_agg,sd_agg,low_agg,up_agg))
+head(agg_stat[order(agg_stat$sd_agg,decreasing = TRUE),])
+```
+
+The table above shows the mean and standard deviation in daily returns for each of the portfolio, ordering by standard deviation in descending order. The first portfolio has the highest standard deviation, and higher mean than the other portfolios with high standard deviation, hence the first portfolio can be a good choice for the aggressive portfolio.
+
+```{r}
+best_agg = which.max(sd_agg)
+best_comb_agg = combs_agg[best_agg,]
+best_comb_agg 
+```
+
+The weights for the safe portfolio is 90% SPY, 10% LQD. Again, the result is fairly intuitive as we discussed before that SPY is very volatile yet with very high expected return.
+
+##Bootstrap Resampling
+
+Now, let's run bootstrap resampling for even split, safe and aggressive portfolio. For each portfolio, we run 5000 simulations.
+
+###Even Split
+```{r fig.width=12, fig.height=6}
+sim_even = foreach(i=1:5000, .combine='rbind') %do% {
+  totalwealth = 100000
+  weights = c(0.2,0.2,0.2,0.2,0.2)
+  holdings = weights * totalwealth
+  n_days = 20
+  wealthtracker = rep(0, n_days)
+  # Set up a placeholder to track total wealth
+  for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+    holdings = weights * totalwealth
+  }
+  wealthtracker
+}
+
+par(mfrow = c(1,2))
+hist(sim_even[,n_days], 25, main = 'wealth after 4-weeks (even split)', xlab = 'wealth')
+hist(sim_even[,n_days]- 100000, 25, main = 'net profit after 4-weeks (even split)',  xlab = 'net profit')
+var_even5 = round(quantile(sim_even[,n_days], 0.05) - 100000, digits = 2)
+var_even95 = round(quantile(sim_even[,n_days], 0.95) - 100000, digits = 2)
+mean_even = round(mean(sim_even[,n_days]) - 100000, digits = 2)
+sd_even = round(sd(sim_even[,n_days]), digits = 2)
+```
+
+###Safe Portfolio
+```{r fig.width=12, fig.height=6}
+sim_safe = foreach(i=1:5000, .combine='rbind') %do% {
+  totalwealth = 100000
+  weights = best_comb_safe
+  holdings = weights * totalwealth
+  n_days = 20
+  wealthtracker = rep(0, n_days)
+  # Set up a placeholder to track total wealth
+  for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+    holdings = weights * totalwealth
+  }
+  wealthtracker
+}
+
+par(mfrow = c(1,2))
+hist(sim_safe[,n_days], 25, main = 'wealth after 4-weeks (safe portfolio)', xlab = 'wealth')
+hist(sim_safe[,n_days]- 100000, 25, main = 'net profit after 4-weeks (safe portfolio)',  xlab = 'net profit')
+var_safe5 = round(quantile(sim_safe[,n_days], 0.05) - 100000, digits = 2)
+var_safe95 = round(quantile(sim_safe[,n_days], 0.95) - 100000, digits = 2)
+mean_safe = round(mean(sim_safe[,n_days]) - 100000, digits = 2)
+sd_safe = round(sd(sim_safe[,n_days]),digits = 2)
+```
+
+###Aggressive Portfolio
+```{r fig.width=12, fig.height=6}
+sim_agg = foreach(i=1:5000, .combine='rbind') %do% {
+  totalwealth = 100000
+  weights = best_comb_agg
+  holdings = weights * totalwealth
+  n_days = 20
+  wealthtracker = rep(0, n_days)
+  # Set up a placeholder to track total wealth
+  for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+    holdings = weights * totalwealth
+  }
+  wealthtracker
+}
+
+par(mfrow = c(1,2))
+hist(sim_agg[,n_days], 25, main = 'wealth after 4-weeks (aggressive portfolio)', xlab = 'wealth')
+hist(sim_agg[,n_days]- 100000, 25, main = 'net profit after 4-weeks (aggressive portfolio)', xlab = 'net profit')
+var_agg5 = round(quantile(sim_agg[,n_days], 0.05) - 100000, digits = 2)
+var_agg95 = round(quantile(sim_agg[,n_days], 0.95) - 100000, digits = 2)
+mean_agg = round(mean(sim_agg[,n_days]) - 100000, digits = 2)
+sd_agg = round(sd(sim_agg[,n_days]), digits = 2)
+```
+
+##Result 
+
+The table below demonstrate the result of return in 4 trading weeks for each portfolio. Mean, stanfard deviation, 5% VaR and 95% VaR are reported.
+
+```{r}
+even_result = c('Even Split', '20%, 20%, 20%, 20%, 20%', mean_even, sd_even, var_even5, var_even95)
+safe_result = c('Safe', '20%, 20%, 60%, 0%, 0%', mean_safe, sd_safe, var_safe5, var_safe95)
+agg_result = c('Aggressive', '0%, 0%, 0%, 90%, 1`0%', mean_agg, sd_agg, var_agg5, var_agg95)
+result = data.frame(rbind(even_result, safe_result, agg_result))
+colnames(result) = c('Portfolio','% in SPY, TLT, LQD, EEM, VNQ', 'Mean($)', 'Std Dev($)', 'VaR at 5%($)', 'VaR at 95%($)')
+rownames(result) = NULL
+pander(result, split.cells = c(8,25,8,8,8,8))
+```
+
+
+#Market segmentation
+
+```{r message = FALSE}
+library(pander)
+library(ggplot2)
+library(LICORS)
+library(foreach)
+library(mosaic)
+library(gridExtra)
+library(wordcloud)
+```
+
+##Data Cleaning and Pre-processing
+
+First, we need to clean the dataset. As mentioned in the description, most of the tweets with `spam` and `adult` info are filtered. So to reduce the bias, it would better to take these two categories out. Also, we take out `uncategorized` and `chatter` since they are usually used as the categories when annotator can't figure out what categories to put. Lastly, we take out `X` make it as the index for the dataframe.
+
+```{r}
+social_raw = read.csv('data/social_marketing.csv')
+rownames(social_raw) = social_raw$X
+social_clean = subset(social_raw, select = -c(X,uncategorized, spam, adult, chatter))
+social_scaled = scale(social_clean, center=TRUE, scale=TRUE)
+```
+
+##K-means Clustering
+
+We first try out clustering using K-means. The drawback for K-means is that we need to pre-specify the number of clusters (K) before we run the model. So we pick K = 3, 5, 8 and compare the clustering results. 
+
+###Random initial cluster center
+
+The first method we try is to randomly pick a starting point for K-means, and find the local optimal.
+
+```{r fig.width=8, fig.height=6}
+kmeans_social3 = kmeans(social_scaled, 3, nstart = 25)
+kmeans_social5 = kmeans(social_scaled, 5, nstart = 25)
+kmeans_social8 = kmeans(social_scaled, 8, nstart = 25)
+CH3 = kmeans_social3$betweenss/kmeans_social3$tot.withinss * (7882 - 3)/(3-1)
+CH5 = kmeans_social5$betweenss/kmeans_social5$tot.withinss * (7882 - 5)/(5-1)
+CH8 = kmeans_social8$betweenss/kmeans_social8$tot.withinss * (7882 - 8)/(8-1)
+
+k = c(3,5,8)
+CH = c(CH3,CH5,CH8)
+plot(CH ~ k, type = 'b')
+```
+
+We first compute the CH-score for each of the clustering results, it turns out that the score is highest when K = 3. However, since this question is more focused on interpreting the groups(clusters) features and potential user groups, so we decide to look at the top ten categories for each cluster under each K clustering.
+
+```{r}
+print(apply(kmeans_social3$centers,1,function(x) colnames(social_scaled)[order(x, decreasing=TRUE)[1:10]]))
+kmeans_social3$size
+```
+
+With 3 clusters, we can see some pattern in each group, however, it's not easy to tell what each group might be demographically.
+
+```{r}
+print(apply(kmeans_social5$centers,1,function(x) colnames(social_scaled)[order(x, decreasing=TRUE)[1:10]]))
+kmeans_social5$size
+```
+
+With 5 clusters, we can see much stronger pattern in each group, which is a good segamentation of all users.
+
+```{r}
+print(apply(kmeans_social8$centers,1,function(x) colnames(social_scaled)[order(x, decreasing=TRUE)[1:10]]))
+kmeans_social8$size
+
+```
+
+With 10 clusters, the patterns are weakened comparing to 5 clusters. It seems like we are over fitting the users into too many groups.
+
+###K-means++
+
+We then try to use K-means++ to get a better initial points for K-means model. 
+
+```{r}
+kmeansPP_social = kmeanspp(social_scaled, 5)
+print(apply(kmeansPP_social$centers,1,function(x) colnames(social_scaled)[order(x, decreasing=TRUE)[1:10]]))
+kmeansPP_social$size
+```
+
+It turns out that the initial points we randomly picked is a very good point, and the result from K-means and K-means++ are very similar.
+
+###K-means vs K-means++
+```{r}
+sum(kmeans_social5$withinss)
+sum(kmeansPP_social$withinss)
+```
+
+Again, the result from K-means and K-means++ are very close. Note in this question, we're not trying to reduce the total within group SSE to a certain amount, rather we're trying to find a set of clusters that's most interpretable and meaningful. As shown above, when K=5, the groups has very strong demographical pattern, so we decide to use it as our cluster size.
+
+##Hierarchical Clustering
+
+We also try out clustering using hierarchical clustering models. The drawback for hiercarchical clustering is that we need to pre-specify the linkage method and the dissimilarity measure. 
+
+###Euclidean
+
+We first try to quantify dissimilarity by euclidean distance. We test on all three linkage methods, and examine the clustering result.
+
+```{r}
+social_distance_matrix = dist(social_scaled, method='euclidean')
+
+hier_social = hclust(social_distance_matrix, method='average')
+cluster1 = cutree(hier_social, k=5)
+
+hier_social2 = hclust(social_distance_matrix, method='complete')
+cluster2 = cutree(hier_social2, k=5)
+
+hier_social3 = hclust(social_distance_matrix, method='single')
+cluster3 = cutree(hier_social3, k=5)
+
+clust.centroid = function(i, dat, clusters) {
+  ind = (clusters == i)
+  colMeans(dat[ind,])
+}
+clust.center = function(i, center){
+  row.names(center[order(center[,i], decreasing = TRUE),][1:10,])
+}
+```
+
+Top ten features from each group under each linkage method are shown below.
+```{r}
+center1 = sapply(unique(cluster1), clust.centroid, social_clean, cluster1)
+sapply(unique(cluster1), clust.center, center1)
+summary(factor(cluster1))
+```
+
+```{r}
+center2 = sapply(unique(cluster2), clust.centroid, social_clean, cluster2)
+sapply(unique(cluster2), clust.center, center2)
+summary(factor(cluster2))
+```
+
+```{r}
+center3 = sapply(unique(cluster3), clust.centroid, social_clean, cluster1)
+sapply(unique(cluster3), clust.center, center3)
+summary(factor(cluster3))
+```
+
+We can see that all three clustering are not having clear patterns in each group. Among three linkage method, when we use `complete`, the result are more interpretable.
+
+###Correlation-based distance
+
+We then try to quantify dissimilarity by correlation. We expect this measure to yield a better result since some user tends to post tweet more often than other users. So the similarity should be quantify in the sense of relative frequency for each user instead of absolute frequency.
+
+```{r}
+social_cor = cor(t(social_scaled), method = "pearson")
+social_dis = as.dist(1 - social_cor)
+hier_social.cor = hclust(social_dis, method='ward.D2')
+cluster.cor = cutree(hier_social.cor, k=5)
+
+center4 = sapply(unique(cluster.cor), clust.centroid, social_clean, cluster.cor)
+sapply(unique(cluster.cor), clust.center, center4)
+summary(factor(cluster.cor))
+```
+
+We can see that using correlation as dissimilarity measure, clusters now have stronger pattern comparing to using euclidean distance. However, comparing to k-means, there still exists some ambiguity among groups. Therefore, we decide to use result from K-means clustering with 5 clusters for further analysis.
+
+##Market Segments and Insight
+
+###Market Segments
+
+Top ten features from K-means clustering with 5 clusters are shown below. 
+
+```{r fig.width=6, fig.height=6}
+center = apply(kmeans_social5$centers,1,function(x) colnames(social_scaled)[order(x, decreasing=TRUE)[1:10]])
+groups = cbind(center[,1],center[,2],center[,3],center[,4],center[,5])
+colnames(groups) = c(1,2,3,4,5)
+pander(groups, split.cells = c(8,8,8,8,8))
+```
+
+We also make two plots with two pairs of distinct features to show the clustering result.
+
+```{r fig.width=12, fig.height=4}
+compare1 = qplot(beauty, computers, data = social_clean, 
+                 color = factor(kmeans_social5$cluster))
+compare2 = qplot(online_gaming, outdoors, data = social_clean, 
+                 color = factor(kmeans_social5$cluster))
+
+grid.arrange(compare1, compare2, ncol = 2)
+```
+
+As shown above, users in group 3 have higher interest in computers whereas people in group 1 have more interest in beauty. Also, users in group 5 have stronger interest in outdoor activities whereas people in group 2 have more interest in online gaming.
+
+###Insight with AIO Model
+
+Lastly, we charaterize each group by activity-interest-opinion (AIO) model, and make predictions on potential demographic for each group.
+
+```{r}
+group1 = c('entertainments, social events', 'fashion, recreation', 'themselves, product', 'young to mid-age female')
+group2 = c('entertainment, hobbies','recreation, fashion','themselves, product', 'college students')
+group3 = c('work, social events', 'technology, recreation', 'politics, business', 'mid-age male')
+group4 = c('community, hobbies', 'family, community', 'themselves, education', 'housewife')
+group5 = c('hobbies, community', 'health, food', 'themselves, product', 'people with healthy lifestyle')
+size = kmeans_social5$size
+number = c(1,2,3,4,5)
+segment = data.frame(cbind(number, size,rbind(group1, group2, group3, group4, group5)))
+
+colnames(segment) = c('group','size', 'activity', 'interest', 'opinion', 'potential')
+rownames(segment) = NULL
+pander(segment, split.cells = c(5,5,15,15,15,25))
+```
+
+
