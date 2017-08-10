@@ -120,8 +120,11 @@ green_dup = green
 
 dummies_green_certificate = model.matrix(~LEED + Energystar - 1, data=green)
 dummies_class = model.matrix(~class_a + class_b - 1, data=green)
-factor_green_certificate = factor(dummies_green_certificate %*% 1:ncol(dummies_green_certificate), label = c('None','LEED','Energystar','Both'))
-factor_class = factor(dummies_class %*% 1:ncol(dummies_class), label = c('c','a','b'))
+factor_green_certificate = factor(dummies_green_certificate %*% 1:ncol(dummies_green_certificate), 
+                                  label = c('None','LEED','Energystar','Both'))
+
+factor_class = factor(dummies_class %*% 1:ncol(dummies_class), 
+                      label = c('c','a','b'))
 
 green_dup$green_certificate = factor_green_certificate
 green_dup$class = factor_class
@@ -227,7 +230,8 @@ The histogram above shows the annual rent ($/sqrt) for green buildings with cert
 ###Boxplots for Green vs Non-Green on `Rent`
 ```{r fig.width = 12, fig.height= 6}
 plot_green = bwplot(Rent ~ green_rating, data = green_clean, main = 'Green vs Non-Green')
-plot_certificate = bwplot(Rent ~ green_certificate, data = green_clean, main = 'Different Green Certifications')
+plot_certificate = bwplot(Rent ~ green_certificate, data = green_clean, 
+                          main = 'Different Green Certifications')
 grid.arrange(plot_green,plot_certificate, ncol = 2)
 ```
 
@@ -242,7 +246,8 @@ The boxplots with summary statistics above shows that the difference in median r
 
 ###Scatter Plot for Numerical Variables
 ```{r}
-scatterplotMatrix(~ size + leasing_rate + stories + age + total_dd_07 + Rent, data = green_clean, upper.panel = NULL)
+scatterplotMatrix(~ size + leasing_rate + stories + age + total_dd_07 + Rent, 
+                  data = green_clean, upper.panel = NULL)
 ```
 
 From the pairwise plots above we can see, there are potential relationships between numerical variables with rent, which very likely are factors in the relationship between green buildings and rent.
@@ -387,7 +392,8 @@ To quantify the potential effects of other predictors in rent as shown above, we
 **Model 1**
 
 ```{r}
-lm.fit1 = lm(Rent ~ green_rating + size + leasing_rate + stories + age + total_dd_07 + class + amenities + renovated + net, data = green_clean) 
+lm.fit1 = lm(Rent ~ green_rating + size + leasing_rate + stories + age + total_dd_07 + 
+               class + amenities + renovated + net, data = green_clean) 
 summary(lm.fit1)
 ```
 
@@ -396,7 +402,8 @@ In the first model, we fit the `Rent` in a linear regressin using all the numeri
 **Model 2**
 
 ```{r}
-lm.fit2 = lm(Rent ~ green_certificate + size + leasing_rate + stories + age + total_dd_07 + class + amenities + renovated + net, data = green_clean) 
+lm.fit2 = lm(Rent ~ green_certificate + size + leasing_rate + stories + age + total_dd_07 + 
+               class + amenities + renovated + net, data = green_clean) 
 summary(lm.fit2)
 ```
 
@@ -405,7 +412,8 @@ In the second model, we fit the `Rent` in a linear regressin using all the numer
 **Model 3**
 
 ```{r}
-lm.fit3 = lm(Rent ~ green_certificate * size + green_certificate * leasing_rate + green_certificate * stories + green_certificate * age + green_certificate * total_dd_07 + green_certificate * class + amenities + renovated + net, data = green_clean) 
+lm.fit3 = lm(Rent ~ green_certificate * size + green_certificate * leasing_rate + green_certificate * stories + 
+               green_certificate * age + green_certificate * total_dd_07 + green_certificate * class + amenities + renovated + net, data = green_clean) 
 summary(lm.fit3)
 
 ```
@@ -557,7 +565,6 @@ sim_even = foreach(i=1:5000, .combine='rbind') %do% {
   holdings = weights * totalwealth
   n_days = 20
   wealthtracker = rep(0, n_days)
-  # Set up a placeholder to track total wealth
   for(today in 1:n_days) {
     return.today = resample(myreturns, 1, orig.ids=FALSE)
     holdings = holdings + holdings*return.today
@@ -570,7 +577,8 @@ sim_even = foreach(i=1:5000, .combine='rbind') %do% {
 
 par(mfrow = c(1,2))
 hist(sim_even[,n_days], 25, main = 'wealth after 4-weeks (even split)', xlab = 'wealth')
-hist(sim_even[,n_days]- 100000, 25, main = 'net profit after 4-weeks (even split)',  xlab = 'net profit')
+hist(sim_even[,n_days]- 100000, 25, main = 'net profit after 4-weeks (even split)',  
+     xlab = 'net profit')
 var_even5 = round(quantile(sim_even[,n_days], 0.05) - 100000, digits = 2)
 var_even95 = round(quantile(sim_even[,n_days], 0.95) - 100000, digits = 2)
 mean_even = round(mean(sim_even[,n_days]) - 100000, digits = 2)
@@ -585,7 +593,6 @@ sim_safe = foreach(i=1:5000, .combine='rbind') %do% {
   holdings = weights * totalwealth
   n_days = 20
   wealthtracker = rep(0, n_days)
-  # Set up a placeholder to track total wealth
   for(today in 1:n_days) {
     return.today = resample(myreturns, 1, orig.ids=FALSE)
     holdings = holdings + holdings*return.today
@@ -598,7 +605,8 @@ sim_safe = foreach(i=1:5000, .combine='rbind') %do% {
 
 par(mfrow = c(1,2))
 hist(sim_safe[,n_days], 25, main = 'wealth after 4-weeks (safe portfolio)', xlab = 'wealth')
-hist(sim_safe[,n_days]- 100000, 25, main = 'net profit after 4-weeks (safe portfolio)',  xlab = 'net profit')
+hist(sim_safe[,n_days]- 100000, 25, main = 'net profit after 4-weeks (safe portfolio)',  
+     xlab = 'net profit')
 var_safe5 = round(quantile(sim_safe[,n_days], 0.05) - 100000, digits = 2)
 var_safe95 = round(quantile(sim_safe[,n_days], 0.95) - 100000, digits = 2)
 mean_safe = round(mean(sim_safe[,n_days]) - 100000, digits = 2)
@@ -613,7 +621,6 @@ sim_agg = foreach(i=1:5000, .combine='rbind') %do% {
   holdings = weights * totalwealth
   n_days = 20
   wealthtracker = rep(0, n_days)
-  # Set up a placeholder to track total wealth
   for(today in 1:n_days) {
     return.today = resample(myreturns, 1, orig.ids=FALSE)
     holdings = holdings + holdings*return.today
@@ -626,7 +633,8 @@ sim_agg = foreach(i=1:5000, .combine='rbind') %do% {
 
 par(mfrow = c(1,2))
 hist(sim_agg[,n_days], 25, main = 'wealth after 4-weeks (aggressive portfolio)', xlab = 'wealth')
-hist(sim_agg[,n_days]- 100000, 25, main = 'net profit after 4-weeks (aggressive portfolio)', xlab = 'net profit')
+hist(sim_agg[,n_days]- 100000, 25, main = 'net profit after 4-weeks (aggressive portfolio)', 
+     xlab = 'net profit')
 var_agg5 = round(quantile(sim_agg[,n_days], 0.05) - 100000, digits = 2)
 var_agg95 = round(quantile(sim_agg[,n_days], 0.95) - 100000, digits = 2)
 mean_agg = round(mean(sim_agg[,n_days]) - 100000, digits = 2)
@@ -642,7 +650,8 @@ even_result = c('Even Split', '20%, 20%, 20%, 20%, 20%', mean_even, sd_even, var
 safe_result = c('Safe', '20%, 20%, 60%, 0%, 0%', mean_safe, sd_safe, var_safe5, var_safe95)
 agg_result = c('Aggressive', '0%, 0%, 0%, 90%, 1`0%', mean_agg, sd_agg, var_agg5, var_agg95)
 result = data.frame(rbind(even_result, safe_result, agg_result))
-colnames(result) = c('Portfolio','% in SPY, TLT, LQD, EEM, VNQ', 'Mean($)', 'Std Dev($)', 'VaR at 5%($)', 'VaR at 95%($)')
+colnames(result) = c('Portfolio','% in SPY, TLT, LQD, EEM, VNQ', 
+                     'Mean($)', 'Std Dev($)', 'VaR at 5%($)', 'VaR at 95%($)')
 rownames(result) = NULL
 pander(result, split.cells = c(8,25,8,8,8,8))
 ```
@@ -695,21 +704,24 @@ plot(CH ~ k, type = 'b')
 We first compute the CH-score for each of the clustering results, it turns out that the score is highest when K = 3. However, since this question is more focused on interpreting the groups(clusters) features and potential user groups, so we decide to look at the top ten categories for each cluster under each K clustering.
 
 ```{r}
-print(apply(kmeans_social3$centers,1,function(x) colnames(social_scaled)[order(x, decreasing=TRUE)[1:10]]))
+print(apply(kmeans_social3$centers,1,function(x) colnames(social_scaled)
+            [order(x, decreasing=TRUE)[1:10]]))
 kmeans_social3$size
 ```
 
 With 3 clusters, we can see some pattern in each group, however, it's not easy to tell what each group might be demographically.
 
 ```{r}
-print(apply(kmeans_social5$centers,1,function(x) colnames(social_scaled)[order(x, decreasing=TRUE)[1:10]]))
+print(apply(kmeans_social5$centers,1,function(x) colnames(social_scaled)
+            [order(x, decreasing=TRUE)[1:10]]))
 kmeans_social5$size
 ```
 
 With 5 clusters, we can see much stronger pattern in each group, which is a good segamentation of all users.
 
 ```{r}
-print(apply(kmeans_social8$centers,1,function(x) colnames(social_scaled)[order(x, decreasing=TRUE)[1:10]]))
+print(apply(kmeans_social8$centers,1,function(x) colnames(social_scaled)
+            [order(x, decreasing=TRUE)[1:10]]))
 kmeans_social8$size
 
 ```
@@ -810,7 +822,8 @@ We can see that using correlation as dissimilarity measure, clusters now have st
 Top ten features from K-means clustering with 5 clusters are shown below. 
 
 ```{r fig.width=6, fig.height=6}
-center = apply(kmeans_social5$centers,1,function(x) colnames(social_scaled)[order(x, decreasing=TRUE)[1:10]])
+center = apply(kmeans_social5$centers,1,function(x) colnames(social_scaled)
+               [order(x, decreasing=TRUE)[1:10]])
 groups = cbind(center[,1],center[,2],center[,3],center[,4],center[,5])
 colnames(groups) = c(1,2,3,4,5)
 pander(groups, split.cells = c(8,8,8,8,8))
@@ -834,11 +847,26 @@ As shown above, users in group 3 have higher interest in computers whereas peopl
 Lastly, we charaterize each group by activity-interest-opinion (AIO) model, and make predictions on potential demographic for each group.
 
 ```{r}
-group1 = c('entertainments, social events', 'fashion, recreation', 'themselves, product', 'young to mid-age female')
-group2 = c('entertainment, hobbies','recreation, fashion','themselves, product', 'college students')
-group3 = c('work, social events', 'technology, recreation', 'politics, business', 'mid-age male')
-group4 = c('community, hobbies', 'family, community', 'themselves, education', 'housewife')
-group5 = c('hobbies, community', 'health, food', 'themselves, product', 'people with healthy lifestyle')
+group1 = c('entertainments, social events', 
+           'fashion, recreation', 
+           'themselves, product', 
+           'young to mid-age female')
+group2 = c('entertainment, hobbies',
+           'recreation, fashion',
+           'themselves, product', 
+           'college students')
+group3 = c('work, social events', 
+           'technology, recreation', 
+           'politics, business', 
+           'mid-age male')
+group4 = c('community, hobbies', 
+           'family, community', 
+           'themselves, education', 
+           'housewife')
+group5 = c('hobbies, community', 
+           'health, food', 
+           'themselves, product', 
+           'people with healthy lifestyle')
 size = kmeans_social5$size
 number = c(1,2,3,4,5)
 segment = data.frame(cbind(number, size,rbind(group1, group2, group3, group4, group5)))
