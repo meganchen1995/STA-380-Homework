@@ -39,7 +39,7 @@ Therefore, **71.43%** of the truthful clickers answered yes.
 
 ##Part B.
 
-First, we have the First, we have the prior distribution,
+First, we have the prior distribution,
 \[P(Disease) = 0.000025\] 
 \[P(Non-Disease) = 1 - P(Disease) = 0.999975\]
 
