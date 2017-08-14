@@ -1,0 +1,240 @@
+---
+title: "hw2"
+output:
+  html_document
+---
+```{r}
+library(ggplot2)
+library(gridExtra)
+library(grid)
+library(dplyr)
+library(stringr)
+library(plotly)
+
+delay = read.csv('data/ABIA.csv')
+airport = read.csv('data/airport.csv')
+
+summary(delay)
+attach(delay)
+
+delay$CRSDepHr = as.factor(format(strptime(str_pad(delay$CRSDepTime,4,side = 'left', pad = '0'),'%H%M'),'%H'))
+
+departure = delay[delay$Origin == 'AUS',]
+departure = departure[!is.na(departure$DepDelay),]
+departure = departure[departure$DepDelay>0,]
+
+departure$Month = as.factor(departure$Month)
+departure$DayofMonth = as.factor(departure$DayofMonth)
+departure$DayOfWeek = as.factor(departure$DayOfWeek)
+
+departure$HrWkAvg = ave(departure$DepDelay,departure$DayOfWeek,departure$CRSDepHr)
+departure$DoMAvg = ave(departure$DepDelay,departure$Month,departure$DayofMonth)
+departure$DestAvg = ave(departure$DepDelay,departure$Dest)
+departure$CarrierDAvg = ave(departure$DepDelay,departure$DayOfWeek,departure$UniqueCarrier)
+
+departure$HrCnt = as.numeric(ave(as.character(departure$CRSDepHr), as.character(departure$DayOfWeek), as.character(departure$CRSDepHr), FUN = length))
+departure$DoMCnt = as.numeric(ave(as.character(departure$DayofMonth), as.character(departure$Month),as.character(departure$DayofMonth), FUN = length))
+departure$DestCnt = as.numeric(ave(as.character(departure$Dest), as.character(departure$Dest), FUN = length))
+departure$CarrierMCnt = as.numeric(ave(as.character(departure$UniqueCarrier), as.character(departure$Month),as.character(departure$UniqueCarrier), FUN = length))
+
+
+departure = merge(departure,airport, by.x = 'Dest', by.y = 'airport')
+
+#Week
+MtoTH= subset(departure, DayOfWeek == 1|DayOfWeek==2|DayOfWeek==3|DayOfWeek==4)
+FtoS = subset(departure, DayOfWeek == 5|DayOfWeek==6|DayOfWeek==7)
+
+week1 = ggplot(MtoTH, aes(x = CRSDepHr, y = HrWkAvg, group = DayOfWeek, color = DayOfWeek)) +
+  geom_point() +
+  geom_line(size = 1) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay in Monday to Thursday') 
+ 
+week2 = ggplot(FtoS, aes(x = CRSDepHr, y = HrWkAvg, group = DayOfWeek, color = DayOfWeek)) +
+  geom_point() +
+  geom_line(size = 1) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay Friday to Sunday') 
+
+grid.arrange(week1, week2, ncol = 2)
+
+#Season and Month 
+season1 = subset(departure, Month == 1|Month==2|Month==3)
+season2 = subset(departure, Month == 4|Month==5|Month==6)
+season3 = subset(departure, Month == 7|Month==8|Month==9)
+season4 = subset(departure, Month == 10|Month==11|Month==12)
+
+s1 = ggplot(season1, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Month)) +
+  geom_point() +
+  geom_line(size = 1) +
+  ylim(0,100) +
+  xlab('Day of Month') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay in seaon 1') 
+
+
+s2 = ggplot(season2, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Month)) +
+  geom_point() +
+  geom_line(size = 1) + 
+  ylim(0,100) +
+  xlab('Day of Month') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay in seaon 2') 
+
+
+s3 = ggplot(season3, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Month)) +
+  geom_point() +
+  geom_line(size = 1) + 
+  ylim(0,100) +
+  xlab('Day of Month') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay in season 3') 
+
+
+s4 = ggplot(season4, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Month)) +
+  geom_point() +
+  geom_line(size = 1) + 
+  ylim(0,100) +
+  xlab('Day of Month') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay in season 4') 
+
+grid.arrange(s1,s2,s3,s4, nrow = 2, ncol = 2)
+
+#Airline
+airlinelarge = c('WN','AA','CO','YV','B6','XE','OO','OH')
+airlinesmall = c('MQ','9E','DL','F9','UA','US','EV','NW')
+
+airlarge = departure[departure$UniqueCarrier %in% airlinelarge,]
+airsmall = departure[departure$UniqueCarrier %in% airlinesmall,]
+
+air1 = ggplot(airlarge, aes(x = DayOfWeek, y = CarrierDAvg, group = UniqueCarrier, color = UniqueCarrier)) +
+  geom_point() +
+  geom_line(size = 1) + 
+  ylim(0,120) +
+  xlab('Day of Week') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay of Major Airlines') 
+
+air2 = ggplot(airsmall, aes(x = DayOfWeek, y = CarrierDAvg, group = UniqueCarrier, color = UniqueCarrier)) +
+  geom_point() +
+  geom_line(size = 1) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay of Minor Airlines') 
+
+grid.arrange(air1,air2,ncol=2)
+
+
+#Dest
+NE = c('BOS','EWR','JFK','PHL')
+MW = c('MDW','ORD','IND','DSM','MSP','MCI','STL','CLE','CVG','DTW')
+SA = c('FLL','JAX','MCO','TPA','ATL','BWI','CLT','RDU','IAD','ORF')
+ESC = c('BNA','MEM')
+WSC = c('MSY','OKC','TUL','DAL','DFW','ELP','HOU','HRL','IAH','LBB','MAF')
+M = c('PHX','TUS','DEN','LAS','ABQ','SLC')
+P = c('LAX','LGB','OAK','ONT','SAN','SFO','SJC','SNA','SEA')
+
+NEdep = departure[departure$Dest %in% NE,]
+MWdep = departure[departure$Dest %in% MW,]
+SAdep = departure[departure$Dest %in% SA,]
+ESCdep = departure[departure$Dest %in% ESC,]
+WSCdep = departure[departure$Dest %in% WSC,]
+Mdep = departure[departure$Dest %in% M,]
+Pdep = departure[departure$Dest %in% P,]  
+  
+NEp = ggplot(NEdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
+  geom_point() +
+  geom_line(size = 0.5) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay Friday to Sunday') 
+
+MWp = ggplot(MWdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
+  geom_point() +
+  geom_line(size = 0.5) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay Friday to Sunday') 
+
+SAp = ggplot(SAdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
+  geom_point() +
+  geom_line(size = 0.5) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay Friday to Sunday') 
+
+ESCp = ggplot(ESCdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
+  geom_point() +
+  geom_line(size = 0.5) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay Friday to Sunday') 
+
+WSCp = ggplot(WSCdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
+  geom_point() +
+  geom_line(size = 0.5) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay Friday to Sunday') 
+
+Mp = ggplot(Mdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
+  geom_point() +
+  geom_line(size = 0.5) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay Friday to Sunday') 
+
+Pp = ggplot(Pdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
+  geom_point() +
+  geom_line(size = 0.5) + 
+  ylim(0,120) +
+  xlab('Time of Day') +
+  ylab('Average delay in minutes') +
+  ggtitle('Flight delay Friday to Sunday') 
+
+
+#destination
+departure = 
+dest = departure[,c('Dest','DestAvg','DestCnt','lon','lat')]
+dest = unique(dest)
+
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showland = TRUE,
+  landcolor = toRGB("gray85"),
+  subunitwidth = 1,
+  countrywidth = 1,
+  subunitcolor = toRGB("white"),
+  countrycolor = toRGB("white")
+)
+
+p <- plot_geo(dest, locationmode = 'USA-states', sizes = c(1, 250),text = ~Dest) %>%
+  add_text(x = ~lon, y = ~lat, textposition = "top") %>%
+  add_markers(
+    x = ~lon, y = ~lat, size = ~DestAvg, color = ~DestAvg, hoverinfo = "text",
+    text = ~paste(dest$Dest, "<br />", "Average Delay",dest$DestAvg))%>%
+  layout(title = '2008 Austin Departure Flights Average Delay by Destination', geo = g)
+
+Map_1 <- plotly_build(p)$x
+l <- length(Map_1$data)
+for (i in 1:l)
+{
+  Map_1$data[[i]]$hoverinfo <- NULL
+}
+Map_1 <- as_widget(Map_1)
+Map_1
+
+```
