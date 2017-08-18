@@ -1,9 +1,11 @@
 ---
-title: "STA 380, Part 2: Exercises 2"
+title: 'STA 380, Part 2: Exercises 2'
 author: "Mark Babbe, Camryn Callaway, Siqi Chen, Jiahao Ye, Zhiyi Yang"
 date: "Aug 18, 2017"
 output:
-  pdf_document: 
+  html_document:
+    toc: yes
+  pdf_document:
     toc: yes
 ---
 
