@@ -1,9 +1,16 @@
 ---
-title: "hw2"
+title: "STA 380, Part 2: Exercises 2"
+author: "Mark Babbe, Camryn Callaway, Siqi Chen, Jiahao Ye, Zhiyi Yang"
+date: "Aug 18, 2017"
 output:
-  html_document
+  pdf_document: 
+    toc: yes
 ---
-```{r}
+
+## Flights at ABIA
+
+### Read in the data
+```{r message = FALSE}
 library(ggplot2)
 library(gridExtra)
 library(grid)
@@ -12,35 +19,42 @@ library(stringr)
 library(plotly)
 
 delay = read.csv('data/ABIA.csv')
-airport = read.csv('data/airport.csv')
-
-summary(delay)
 attach(delay)
+```
 
-delay$CRSDepHr = as.factor(format(strptime(str_pad(delay$CRSDepTime,4,side = 'left', pad = '0'),'%H%M'),'%H'))
 
+### Extract departure hour from departure time
+```{r}
+delay$CRSDepHr = as.factor(format(strptime(str_pad(delay$CRSDepTime,4,side = 'left',
+                                                   pad = '0'),'%H%M'),'%H'))
+```
+
+### Separate the dataframe into departure and arrival
+```{r}
 departure = delay[delay$Origin == 'AUS',]
 departure = departure[!is.na(departure$DepDelay),]
 departure = departure[departure$DepDelay>0,]
 
+arrival = delay[delay$Dest == 'AUS',]
+arrival = arrival[!is.na(arrival$ArrDelay),]
+arrival = arrival[arrival$ArrDelay>0,]
+```
+
+### Calculate delay average by hour, by day in a month and by destination
+```{r}
 departure$Month = as.factor(departure$Month)
 departure$DayofMonth = as.factor(departure$DayofMonth)
 departure$DayOfWeek = as.factor(departure$DayOfWeek)
-
 departure$HrWkAvg = ave(departure$DepDelay,departure$DayOfWeek,departure$CRSDepHr)
 departure$DoMAvg = ave(departure$DepDelay,departure$Month,departure$DayofMonth)
 departure$DestAvg = ave(departure$DepDelay,departure$Dest)
-departure$CarrierDAvg = ave(departure$DepDelay,departure$DayOfWeek,departure$UniqueCarrier)
 
-departure$HrCnt = as.numeric(ave(as.character(departure$CRSDepHr), as.character(departure$DayOfWeek), as.character(departure$CRSDepHr), FUN = length))
-departure$DoMCnt = as.numeric(ave(as.character(departure$DayofMonth), as.character(departure$Month),as.character(departure$DayofMonth), FUN = length))
-departure$DestCnt = as.numeric(ave(as.character(departure$Dest), as.character(departure$Dest), FUN = length))
-departure$CarrierMCnt = as.numeric(ave(as.character(departure$UniqueCarrier), as.character(departure$Month),as.character(departure$UniqueCarrier), FUN = length))
+arrival$OrigAvg = ave(arrival$ArrDelay,arrival$Origin)
+```
 
 
-departure = merge(departure,airport, by.x = 'Dest', by.y = 'airport')
-
-#Week
+### Flight delay by hour of day in given weekday
+```{r fig.width = 10, fig.height=4}
 MtoTH= subset(departure, DayOfWeek == 1|DayOfWeek==2|DayOfWeek==3|DayOfWeek==4)
 FtoS = subset(departure, DayOfWeek == 5|DayOfWeek==6|DayOfWeek==7)
 
@@ -50,7 +64,9 @@ week1 = ggplot(MtoTH, aes(x = CRSDepHr, y = HrWkAvg, group = DayOfWeek, color = 
   ylim(0,120) +
   xlab('Time of Day') +
   ylab('Average delay in minutes') +
-  ggtitle('Flight delay in Monday to Thursday') 
+  ggtitle('Flight delay in Monday to Thursday') +
+  scale_colour_discrete(labels=c("Monday","Tuesday","Wednesday","Thursday")) +
+  theme_bw()
  
 week2 = ggplot(FtoS, aes(x = CRSDepHr, y = HrWkAvg, group = DayOfWeek, color = DayOfWeek)) +
   geom_point() +
@@ -58,11 +74,15 @@ week2 = ggplot(FtoS, aes(x = CRSDepHr, y = HrWkAvg, group = DayOfWeek, color = D
   ylim(0,120) +
   xlab('Time of Day') +
   ylab('Average delay in minutes') +
-  ggtitle('Flight delay Friday to Sunday') 
+  ggtitle('Flight delay Friday to Sunday') +
+  scale_colour_discrete(labels=c("Friday","Saturday","Sunday"))+
+  theme_bw()
 
 grid.arrange(week1, week2, ncol = 2)
+```
 
-#Season and Month 
+### Flight delay by day of month in given month
+```{r fig.width = 12, fig.height=8}
 season1 = subset(departure, Month == 1|Month==2|Month==3)
 season2 = subset(departure, Month == 4|Month==5|Month==6)
 season3 = subset(departure, Month == 7|Month==8|Month==9)
@@ -74,7 +94,9 @@ s1 = ggplot(season1, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Mont
   ylim(0,100) +
   xlab('Day of Month') +
   ylab('Average delay in minutes') +
-  ggtitle('Flight delay in seaon 1') 
+  ggtitle('Flight delay in seaon 1') +
+  scale_colour_discrete(labels=c("Jan","Feb","Mar"))+
+  theme_bw()
 
 
 s2 = ggplot(season2, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Month)) +
@@ -83,7 +105,9 @@ s2 = ggplot(season2, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Mont
   ylim(0,100) +
   xlab('Day of Month') +
   ylab('Average delay in minutes') +
-  ggtitle('Flight delay in seaon 2') 
+  ggtitle('Flight delay in seaon 2') +
+  scale_colour_discrete(labels=c("Apr","May","Jun"))+
+  theme_bw()
 
 
 s3 = ggplot(season3, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Month)) +
@@ -92,7 +116,9 @@ s3 = ggplot(season3, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Mont
   ylim(0,100) +
   xlab('Day of Month') +
   ylab('Average delay in minutes') +
-  ggtitle('Flight delay in season 3') 
+  ggtitle('Flight delay in season 3') +
+  scale_colour_discrete(labels=c("Jul","Aug","Sep"))+
+  theme_bw()
 
 
 s4 = ggplot(season4, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Month)) +
@@ -101,140 +127,259 @@ s4 = ggplot(season4, aes(x = DayofMonth, y = DoMAvg, group = Month, color = Mont
   ylim(0,100) +
   xlab('Day of Month') +
   ylab('Average delay in minutes') +
-  ggtitle('Flight delay in season 4') 
+  ggtitle('Flight delay in season 4') +
+  scale_colour_discrete(labels=c("Oct","Nov","Dec"))+
+  theme_bw()
 
 grid.arrange(s1,s2,s3,s4, nrow = 2, ncol = 2)
-
-#Airline
-airlinelarge = c('WN','AA','CO','YV','B6','XE','OO','OH')
-airlinesmall = c('MQ','9E','DL','F9','UA','US','EV','NW')
-
-airlarge = departure[departure$UniqueCarrier %in% airlinelarge,]
-airsmall = departure[departure$UniqueCarrier %in% airlinesmall,]
-
-air1 = ggplot(airlarge, aes(x = DayOfWeek, y = CarrierDAvg, group = UniqueCarrier, color = UniqueCarrier)) +
-  geom_point() +
-  geom_line(size = 1) + 
-  ylim(0,120) +
-  xlab('Day of Week') +
-  ylab('Average delay in minutes') +
-  ggtitle('Flight delay of Major Airlines') 
-
-air2 = ggplot(airsmall, aes(x = DayOfWeek, y = CarrierDAvg, group = UniqueCarrier, color = UniqueCarrier)) +
-  geom_point() +
-  geom_line(size = 1) + 
-  ylim(0,120) +
-  xlab('Time of Day') +
-  ylab('Average delay in minutes') +
-  ggtitle('Flight delay of Minor Airlines') 
-
-grid.arrange(air1,air2,ncol=2)
+```
 
 
-#Dest
-NE = c('BOS','EWR','JFK','PHL')
-MW = c('MDW','ORD','IND','DSM','MSP','MCI','STL','CLE','CVG','DTW')
-SA = c('FLL','JAX','MCO','TPA','ATL','BWI','CLT','RDU','IAD','ORF')
-ESC = c('BNA','MEM')
-WSC = c('MSY','OKC','TUL','DAL','DFW','ELP','HOU','HRL','IAH','LBB','MAF')
-M = c('PHX','TUS','DEN','LAS','ABQ','SLC')
-P = c('LAX','LGB','OAK','ONT','SAN','SFO','SJC','SNA','SEA')
+### Flight delay by destination and origin
 
-NEdep = departure[departure$Dest %in% NE,]
-MWdep = departure[departure$Dest %in% MW,]
-SAdep = departure[departure$Dest %in% SA,]
-ESCdep = departure[departure$Dest %in% ESC,]
-WSCdep = departure[departure$Dest %in% WSC,]
-Mdep = departure[departure$Dest %in% M,]
-Pdep = departure[departure$Dest %in% P,]  
-  
-NEp = ggplot(NEdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
-  geom_point() +
-  geom_line(size = 0.5) + 
-  ylim(0,120) +
-  xlab('Time of Day') +
-  ylab('Average delay in minutes') +
-  ggtitle('Flight delay Friday to Sunday') 
+Longitude and latitude of the airports obtained online to plot them in a map
+```{r fig.width = 12, fig.height=8}
+airport = read.csv('data/airport.csv')
+departure = merge(departure,airport, by.x = 'Dest', by.y = 'airport')
+arrival = merge(arrival, airport, by.x = 'Origin', by.y = 'airport')
+usa = map_data("state")
+```
 
-MWp = ggplot(MWdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
-  geom_point() +
-  geom_line(size = 0.5) + 
-  ylim(0,120) +
-  xlab('Time of Day') +
-  ylab('Average delay in minutes') +
-  ggtitle('Flight delay Friday to Sunday') 
-
-SAp = ggplot(SAdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
-  geom_point() +
-  geom_line(size = 0.5) + 
-  ylim(0,120) +
-  xlab('Time of Day') +
-  ylab('Average delay in minutes') +
-  ggtitle('Flight delay Friday to Sunday') 
-
-ESCp = ggplot(ESCdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
-  geom_point() +
-  geom_line(size = 0.5) + 
-  ylim(0,120) +
-  xlab('Time of Day') +
-  ylab('Average delay in minutes') +
-  ggtitle('Flight delay Friday to Sunday') 
-
-WSCp = ggplot(WSCdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
-  geom_point() +
-  geom_line(size = 0.5) + 
-  ylim(0,120) +
-  xlab('Time of Day') +
-  ylab('Average delay in minutes') +
-  ggtitle('Flight delay Friday to Sunday') 
-
-Mp = ggplot(Mdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
-  geom_point() +
-  geom_line(size = 0.5) + 
-  ylim(0,120) +
-  xlab('Time of Day') +
-  ylab('Average delay in minutes') +
-  ggtitle('Flight delay Friday to Sunday') 
-
-Pp = ggplot(Pdep, aes(x = Month, y = DestAvg, group = Dest, color = Dest)) +
-  geom_point() +
-  geom_line(size = 0.5) + 
-  ylim(0,120) +
-  xlab('Time of Day') +
-  ylab('Average delay in minutes') +
-  ggtitle('Flight delay Friday to Sunday') 
-
-
-#destination
-departure = 
-dest = departure[,c('Dest','DestAvg','DestCnt','lon','lat')]
+#### Average departure and arrival delay
+```{r warning = FALSE, fig.width = 12, fig.height=12}
+dest = departure[,c('Dest','DestAvg','lon','lat')]
 dest = unique(dest)
 
-g <- list(
-  scope = 'usa',
-  projection = list(type = 'albers usa'),
-  showland = TRUE,
-  landcolor = toRGB("gray85"),
-  subunitwidth = 1,
-  countrywidth = 1,
-  subunitcolor = toRGB("white"),
-  countrycolor = toRGB("white")
-)
+plot_dest = ggplot() +
+  geom_map(data=usa, map=usa,aes(x=long, y=lat, map_id=region),
+           fill="lightgray", color="white", size=0.15) +
+  geom_point(data = dest, aes(x = lon, y = lat, size = DestAvg), color = "red") +
+  geom_text(data= dest, mapping=aes(x=lon, y=lat, label=Dest), size=3, vjust=2, hjust=0.5)+
+  scale_size_continuous(name = "Average Departure Delay (min)") +
+  ggtitle('2008 Austin Average Departure Delay by Destination') + 
+  theme_void()
 
-p <- plot_geo(dest, locationmode = 'USA-states', sizes = c(1, 250),text = ~Dest) %>%
-  add_text(x = ~lon, y = ~lat, textposition = "top") %>%
-  add_markers(
-    x = ~lon, y = ~lat, size = ~DestAvg, color = ~DestAvg, hoverinfo = "text",
-    text = ~paste(dest$Dest, "<br />", "Average Delay",dest$DestAvg))%>%
-  layout(title = '2008 Austin Departure Flights Average Delay by Destination', geo = g)
+orig = arrival[,c('Origin','OrigAvg','lon','lat')]
+orig = unique(orig)
+plot_orig = ggplot() +
+  geom_map(data=usa, map=usa,aes(x=long, y=lat, map_id=region),
+           fill="lightgray", color="white", size=0.15) +
+  geom_point(data = orig, aes(x = lon, y = lat, size = OrigAvg), color = "red") +
+  geom_text(data= orig, mapping=aes(x=lon, y=lat, label=Origin), size=3, vjust=2, hjust=0.5)+
+  scale_size_continuous(name = "Average Arrival Delay (min)") +
+  ggtitle('2008 Austin Average Arrival Delay by Origin') + 
+  theme_void()
 
-Map_1 <- plotly_build(p)$x
-l <- length(Map_1$data)
-for (i in 1:l)
-{
-  Map_1$data[[i]]$hoverinfo <- NULL
-}
-Map_1 <- as_widget(Map_1)
-Map_1
-
+grid.arrange(plot_dest,plot_orig, nrow = 2)
 ```
+
+## Author attribution
+
+### Read in raw data from training and test sets
+```{r}
+library(tm)
+readerPlain = function(fname){
+  readPlain(elem=list(content=readLines(fname)), 
+            id=fname, language='en') }
+
+file_list_train = Sys.glob('data/ReutersC50/C50train/*/*.txt')
+file_list_test = Sys.glob('data/ReutersC50/C50test/*/*.txt')
+all_train = lapply(file_list_train, readerPlain) 
+all_test = lapply(file_list_test, readerPlain) 
+
+names(all_train) = file_list_train
+names(all_train) = substring(names(all_train),first=26)
+names(all_train) = t(data.frame(strsplit(names(all_train),'/')))[,1]
+
+names(all_test) = file_list_test
+names(all_test) = substring(names(all_test),first=25)
+names(all_test) = t(data.frame(strsplit(names(all_test),'/')))[,1]
+
+my_documents_train = Corpus(VectorSource(all_train))
+my_documents_test = Corpus(VectorSource(all_test))
+```
+
+
+### Process raw data
+
+To make better prediction, we first make everything lowercase, then we remove numbers, puctuation and excess white-space. In addition, we also removed all the stopwords. 
+
+```{r}
+my_documents_train = tm_map(my_documents_train, content_transformer(tolower)) 
+my_documents_train = tm_map(my_documents_train, content_transformer(removeNumbers))
+my_documents_train = tm_map(my_documents_train, content_transformer(removePunctuation)) 
+my_documents_train = tm_map(my_documents_train, content_transformer(stripWhitespace)) 
+
+my_documents_train = tm_map(my_documents_train, content_transformer(removeWords), stopwords("en"))
+
+my_documents_test = tm_map(my_documents_test, content_transformer(tolower)) 
+my_documents_test = tm_map(my_documents_test, content_transformer(removeNumbers)) 
+my_documents_test  = tm_map(my_documents_test, content_transformer(removePunctuation))
+my_documents_test  = tm_map(my_documents_test, content_transformer(stripWhitespace)) 
+my_documents_test  = tm_map(my_documents_test , content_transformer(removeWords), stopwords("en"))
+```
+
+
+### TF-IDF Score 
+Instead of purly using word count in each article, we decided to use TF-IDF score of each word within each article as the benchmark, since it adjust for relative frequency both in each article and among all articles, which can improve prediction accuracy. Moreover, we remove terms that are sparse more than 97.5%.
+
+```{r}
+DTM_tfidf_train = DocumentTermMatrix(my_documents_train, control = list(weighting = weightTfIdf))
+DTM_tfidf_train = removeSparseTerms(DTM_tfidf_train, 0.975)
+
+DTM_tfidf_test = DocumentTermMatrix(my_documents_test, control = list(weighting = weightTfIdf))
+DTM_tfidf_test = removeSparseTerms(DTM_tfidf_test, 0.975)
+```
+
+### Training and Test Sets
+
+We then construct training and test sets from document term matrix. We added a column `author_train` and `author_test` to training and test sets respectively, as the response variables.
+
+```{r}
+term_freq_train = as.data.frame(as.matrix(DTM_tfidf_train))
+names(term_freq_train) = paste(names(term_freq_train),'.w',sep='')
+author_train = factor(names(all_train))
+
+term_freq_test = as.data.frame(as.matrix(DTM_tfidf_test))
+names(term_freq_test) = paste(names(term_freq_test),'.w',sep='')
+author_test = factor(names(all_test))
+
+intersection = intersect(names(term_freq_train),names(term_freq_test))
+term_freq_train = term_freq_train[,intersection]
+term_freq_test = term_freq_test[,intersection]
+
+X_train = term_freq_train
+X_train$author = author_train
+X_test = term_freq_test
+X_test$author = author_test
+```
+
+### Model One: Naive Bayes
+
+The first model we tried is Naive Bayes. The advantage of Naive Bayes is that it only requires simply calculation so the computation time is short. However, the average prediction accuracy among all authors is around 50%, which is not very satisfactory.
+
+```{r}
+library(naivebayes)
+nb.listing = naive_bayes(author ~ ., data = X_train)
+nb.pred = data.frame(predict(nb.listing,X_test))
+compare_nb = data.frame(cbind(nb.pred,X_test$author))
+compare_nb$correct = compare_nb$predict.nb.listing..X_test. == compare_nb$X_test.author
+mean(compare_nb$correct)
+```
+
+### Model Two: Random Forest
+
+The second model we tried is Random Forest. We expect tree model to give us higher prediciton accuracy. The average prediction accuracy among all authors from random forest is around 62.4%, which is a significant improvement comparing to Naive Bayes.
+
+```{r message = FALSE}
+set.seed(10)
+library(randomForest)
+rf.listing = randomForest(author ~ ., data = X_train,
+                          distribution = 'multinomial',
+                          n.trees=200)
+rf.pred = data.frame(predict(rf.listing,newdata = X_test))
+compare_rf = data.frame(cbind(rf.pred,X_test$author))
+compare_rf$correct = compare_rf$predict.rf.listing..newdata...X_test. == compare_rf$X_test.author
+mean(compare_rf$correct)
+```
+
+### Result Comparison
+
+To better understand the prediction result, we further calculate prediction accuracies for each author in both model.
+
+```{r message = FALSE}
+library(pander)
+authors = unique(names(all_train))
+n_authors = length(authors)
+
+correctness_nb = data.frame(matrix(ncol = 2, nrow = n_authors))
+colnames(correctness_nb) = c('author', 'accuracy_nb')
+correctness_nb$author = authors
+
+for (i in 1:n_authors){
+  set = subset(compare_nb,compare_nb$X_test.author == authors[i])
+  correctness_nb[i,2] = mean(set$correct)
+}
+
+result_nb = correctness_nb[order(correctness_nb$accuracy_nb,decreasing = TRUE),]
+
+correctness_rf = data.frame(matrix(ncol = 2, nrow = n_authors))
+colnames(correctness_rf) = c('author', 'accuracy_rf')
+correctness_rf$author = authors
+
+for (i in 1:n_authors){
+  set = subset(compare_rf,compare_rf$X_test.author == authors[i])
+  correctness_rf[i,2] = mean(set$correct)
+}
+
+result_rf = correctness_rf[order(correctness_rf$accuracy_rf,decreasing = TRUE),]
+```
+
+#### Naive Bayes
+
+Top 10 accurate prediction
+```{r}
+pander(result_nb[1:10,])
+```
+
+Top 10 least accurate prediction
+```{r}
+pander(result_nb[41:50,])
+```
+
+#### Random Forest
+
+Top 10 accurate prediction
+```{r}
+pander(result_rf[1:10,])
+```
+
+Top 10 least accurate prediction
+```{r}
+pander(result_rf[41:50,])
+```
+
+Overall, random forest has much better prediction accuracy for top accurate predictions. In particular, prediction accuracies for articles from *Fumiko Fujisaki* and *Jim Gilchrist* are 100%. However, for least accurate predicitions, both models yield similar predicion accuracy. Articles from *David Lawder* and *Scott Hillis* are hardest to predict. Both models have less than 20% prediction accuracies.
+
+
+## Practice with association rule mining
+
+### Read in raw file as transactions
+```{r}
+library(arules) 
+groceries = read.transactions(file = 'data/groceries.txt', rm.duplicates = TRUE, 
+                              format = 'basket', sep = ',')
+```
+
+### Apply Apriori algorithm
+After trying several combinations of min support and min confidence, we set the initial threshold for support at 0.015, and confidence at 0.25, with a maximum of 3 items in itemlist. There are around 10000 transactions, so an itemlist need to at least appears 150 times base on 0.015 minimum support, which is a reasonable amount. If the min support is too high, the resulting associations have low lift and are not very meaningful. On the other hand, if the min support is too low, the resulting associations have high lift, but might not be very representative.
+
+```{r message = FALSE}
+grocery_rules = apriori(groceries, 
+                        parameter=list(support=.015, confidence=.25, maxlen=3))
+```
+
+With the above threshold, we have 79 resulting associations, so we decided to further cutdown the list.
+
+### Result inspection
+We first look at the ones with lift higher than 2.5, which means the conditional probability of purchasing is at least 2.5 times higher than the marginal probability. The results are as follows:
+```{r}
+inspect(subset(grocery_rules, subset=lift > 2.5))
+```
+
+All five results make sense to us. People tend to buy carrot, potaoes with beef; buy different kinds of fruits together; buy tropical fruit with milk and yogurt for smoothies and milkshakes; and buy vegetables with milk maybe for some 'healthy' drink.
+
+We then look at the ones with confidence higher than 0.5, which means the subset appears at least half of the times in the itemlist. The results are as follows:
+```{r}
+inspect(subset(grocery_rules, subset=confidence > 0.5))
+```
+
+These two results are similar to the some from previous inspection, the combination of fruit, yogurt and milk seem to be good ingredients for milkshake and smoothies.
+
+Lastly, we look at the ones with slightly lower confidence of 0.3, but higher support of 0.05.
+
+```{r}
+inspect(subset(grocery_rules, subset=support > .05 & confidence > 0.3))
+```
+
+These three associations also make sense, though the lifts are not as high as the previous associations. First two can be associations for breakfast, the third one might be for 'healthy' food style people.
